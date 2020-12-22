@@ -1,5 +1,11 @@
-module github.com/lingsamuel/golang-docker-scratch
+module github.com/lingsamuel/zeppelin-backend-sql-server
 
 go 1.15
 
-require github.com/spf13/cobra v1.1.1
+require (
+	github.com/go-sql-driver/mysql v1.5.0
+	github.com/sirupsen/logrus v1.4.2
+	github.com/spf13/cobra v1.1.1
+	google.golang.org/grpc v1.27.0 // indirect
+	vitess.io/vitess v0.7.0
+)

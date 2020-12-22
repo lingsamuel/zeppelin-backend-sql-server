@@ -1,8 +1,7 @@
-
 package main
 
 import (
-	"github.com/lingsamuel/golang-docker-scratch/pkg/cmd"
+	"github.com/lingsamuel/zeppelin-backend-sql-server/pkg/cmd"
 )
 
 func main() {

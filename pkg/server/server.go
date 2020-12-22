@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/lingsamuel/zeppelin-backend-sql-server/pkg/zeppelin"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -114,40 +115,51 @@ func (h *Handler) ConnectionClosed(c *mysql.Conn) {
 // ComQuery executes a SQL query
 func (h *Handler) ComQuery(c *mysql.Conn, query string, callback func(*sqltypes.Result) error) error {
 	var err error
-	//return h.doQuery(c, query, nil, callback)
+	defer func() {
+		if err != nil {
+			logrus.Errorf("ComQuery: %v", err)
+		}
+	}()
+
+	if strings.Contains(query, "@@version_comment") {
+		var v sqltypes.Value
+		v, err = sqltypes.NewValue(querypb.Type_TEXT, []byte(fmt.Sprintf("Configured at %s", zeppelin.Backend)))
+		if err != nil {
+			return err
+		}
+		err = callback(&sqltypes.Result{
+			Fields: []*querypb.Field{
+				&querypb.Field{
+					Name:     "@@version_comment",
+					Type:     querypb.Type_TEXT,
+					Table:    "test",
+					OrgTable: "test",
+					Database: "test",
+					OrgName:  "test",
+				},
+			},
+			RowsAffected: 0,
+			InsertID:     0,
+			Rows: [][]sqltypes.Value{
+				[]sqltypes.Value{
+					v,
+				},
+			},
+		})
+		return err
+	}
+
 	fmt.Printf("ComQuery %s\n", query)
-	//client, err := zeppelin.New()
-	//if err != nil {
-	//	return err
-	//}
-	//r, err := client.RunParagraph(query)
+	r, err := h.client.RunParagraph(query)
 	if err != nil {
 		return err
 	}
 
-	v, err := sqltypes.NewValue(querypb.Type_TEXT, []byte("R"))
-	if err != nil {
-		return err
+	// return last query
+	if len(r) == 0 {
+		return nil
 	}
-	err = callback(&sqltypes.Result{
-		Fields: []*querypb.Field{
-			&querypb.Field{
-				Name:     "RESULT",
-				Type:     querypb.Type_TEXT,
-				Table:    "test",
-				OrgTable: "test",
-				Database: "test",
-				OrgName:  "test",
-			},
-		},
-		RowsAffected: 0,
-		InsertID:     0,
-		Rows: [][]sqltypes.Value{
-			[]sqltypes.Value{
-				v,
-			},
-		},
-	})
+	err = callback(r[len(r)-1])
 	if err != nil {
 		return err
 	}

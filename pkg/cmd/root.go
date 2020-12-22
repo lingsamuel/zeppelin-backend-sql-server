@@ -22,32 +22,28 @@ var (
 	zeppelinAddress string
 	zeppelinPort    string
 
-	rootCmd = &cobra.Command{
+	RootCmd = &cobra.Command{
 		Use:   "zeppelin-proxy",
 		Short: "Provides a zeppelin backend sql server.",
 		Long:  `Provides a zeppelin backend sql server.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			main()
+			runRoot()
 		},
 	}
 )
 
-func Execute() error {
-	return rootCmd.Execute()
-}
-
 func init() {
-	rootCmd.PersistentFlags().IntVarP(&logLevel, "loglevel", "l", int(logrus.InfoLevel), "Logrus log level. From 0 to 6: panic, fatal, error, warning, info, debug, trace.")
-	rootCmd.PersistentFlags().StringVar(&db, "db", "test", "Database name.")
+	RootCmd.PersistentFlags().IntVarP(&logLevel, "loglevel", "l", int(logrus.InfoLevel), "Logrus log level. From 0 to 6: panic, fatal, error, warning, info, debug, trace.")
+	RootCmd.PersistentFlags().StringVar(&db, "db", "test", "Database name.")
 
-	rootCmd.PersistentFlags().StringVarP(&address, "address", "a", "0.0.0.0", "SQL server address.")
-	rootCmd.PersistentFlags().IntVarP(&port, "port", "P", 3306, "SQL server port.")
+	RootCmd.PersistentFlags().StringVarP(&address, "address", "a", "0.0.0.0", "SQL server address.")
+	RootCmd.PersistentFlags().IntVarP(&port, "port", "P", 3306, "SQL server port.")
 
-	rootCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "SQL server user. If user or password empty, auth will be disabled.")
-	rootCmd.PersistentFlags().StringVarP(&password, "password", "p", "", "SQL server password. If user or password empty, auth will be disabled.")
+	RootCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "SQL server user. If user or password empty, auth will be disabled.")
+	RootCmd.PersistentFlags().StringVarP(&password, "password", "p", "", "SQL server password. If user or password empty, auth will be disabled.")
 
-	rootCmd.PersistentFlags().StringVar(&zeppelinAddress, "zeppelinAddress", "", "Zeppelin address.")
-	rootCmd.PersistentFlags().StringVar(&zeppelinPort, "zeppelinPort", "80", "Zeppelin port.")
+	RootCmd.PersistentFlags().StringVar(&zeppelinAddress, "zeppelinAddress", "", "Zeppelin address.")
+	RootCmd.PersistentFlags().StringVar(&zeppelinPort, "zeppelinPort", "80", "Zeppelin port.")
 }
 
 func check() {
@@ -61,11 +57,11 @@ func check() {
 	}
 }
 
-func main() {
+func runRoot() {
+	logrus.SetLevel(logrus.Level(logLevel))
 	check()
 
 	zeppelin.Backend = fmt.Sprintf("%s:%s/api", zeppelinAddress, zeppelinPort)
-	logrus.SetLevel(logrus.Level(logLevel))
 
 	s, err := server.New("tcp", fmt.Sprintf("%s:%v", address, port))
 	if err != nil {
@@ -73,5 +69,6 @@ func main() {
 	}
 
 	s.ServerVersion = "1.0.0-Zeppelin"
+	logrus.Infof("Started at %s (backend %s)", s.Addr(), zeppelin.Backend)
 	s.Accept()
 }

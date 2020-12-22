@@ -11,4 +11,4 @@ run: docker
 	docker run --rm $(IMAGE_TAG)
 test:
 	CGO_ENABLED=0 go build -ldflags '-extldflags "-static"' -o output/tester ./cmd/tester.go
-	./output/tester
+all: build test

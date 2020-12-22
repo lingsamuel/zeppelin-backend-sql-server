@@ -112,6 +112,86 @@ func (h *Handler) ConnectionClosed(c *mysql.Conn) {
 	}
 }
 
+func selectVariable(name, val string) *sqltypes.Result {
+	var v sqltypes.Value
+	if val == "NULL" {
+		v = sqltypes.NULL
+	} else {
+		v = sqltypes.NewVarChar(val)
+	}
+	return &sqltypes.Result{
+		Fields: []*querypb.Field{
+			&querypb.Field{
+				Name:     "@@" + name,
+				Type:     querypb.Type_VARCHAR,
+				Table:    "test",
+				OrgTable: "test",
+				Database: "test",
+				OrgName:  "test",
+			},
+		},
+		RowsAffected: 0,
+		InsertID:     0,
+		Rows: [][]sqltypes.Value{
+			[]sqltypes.Value{
+				v,
+			},
+		},
+	}
+}
+
+func showVariables() *sqltypes.Result {
+	zone, _ := time.Now().Zone()
+	return &sqltypes.Result{
+		Fields: []*querypb.Field{
+			&querypb.Field{
+				Name:     "Variable_name",
+				Type:     querypb.Type_VARCHAR,
+				Table:    "test",
+				OrgTable: "test",
+				Database: "test",
+				OrgName:  "test",
+			},
+			&querypb.Field{
+				Name:     "Value",
+				Type:     querypb.Type_VARCHAR,
+				Table:    "test",
+				OrgTable: "test",
+				Database: "test",
+				OrgName:  "test",
+			},
+		},
+		RowsAffected: 0,
+		InsertID:     0,
+		Rows: [][]sqltypes.Value{
+			[]sqltypes.Value{
+				sqltypes.NewVarChar("time_zone"),
+				sqltypes.NewVarChar("SYSTEM"),
+			},
+			[]sqltypes.Value{
+				sqltypes.NewVarChar("system_time_zone"),
+				sqltypes.NewVarChar(zone),
+			},
+			[]sqltypes.Value{
+				sqltypes.NewVarChar("character_set_connection"),
+				sqltypes.NewVarChar("utf8mb4"),
+			},
+			[]sqltypes.Value{
+				sqltypes.NewVarChar("character_set_results"),
+				sqltypes.NewVarChar("utf8mb4"),
+			},
+			[]sqltypes.Value{
+				sqltypes.NewVarChar("character_set_client"),
+				sqltypes.NewVarChar("utf8mb4"),
+			},
+			[]sqltypes.Value{
+				sqltypes.NewVarChar("version_comment"),
+				sqltypes.NewVarChar(fmt.Sprintf("Configured at %s", zeppelin.Backend)),
+			},
+		},
+	}
+}
+
 // ComQuery executes a SQL query
 func (h *Handler) ComQuery(c *mysql.Conn, query string, callback func(*sqltypes.Result) error) error {
 	var err error
@@ -121,32 +201,25 @@ func (h *Handler) ComQuery(c *mysql.Conn, query string, callback func(*sqltypes.
 		}
 	}()
 
-	if strings.Contains(query, "@@version_comment") {
-		var v sqltypes.Value
-		v, err = sqltypes.NewValue(querypb.Type_TEXT, []byte(fmt.Sprintf("Configured at %s", zeppelin.Backend)))
-		if err != nil {
-			return err
-		}
-		err = callback(&sqltypes.Result{
-			Fields: []*querypb.Field{
-				&querypb.Field{
-					Name:     "@@version_comment",
-					Type:     querypb.Type_TEXT,
-					Table:    "test",
-					OrgTable: "test",
-					Database: "test",
-					OrgName:  "test",
-				},
-			},
-			RowsAffected: 0,
+	if strings.HasPrefix(query, "SET ") {
+		return callback(&sqltypes.Result{
+			Fields:       []*querypb.Field{},
+			RowsAffected: 1,
 			InsertID:     0,
-			Rows: [][]sqltypes.Value{
-				[]sqltypes.Value{
-					v,
-				},
-			},
+			Rows:         [][]sqltypes.Value{},
 		})
-		return err
+	} else if strings.Contains(query, "@@") {
+		var vars map[string]string = map[string]string{
+			"version_comment":      fmt.Sprintf("Configured at %s", zeppelin.Backend),
+			"session.tx_isolation": "NULL",
+		}
+		for k, v := range vars {
+			if strings.Contains(query, "@@"+k) {
+				return callback(selectVariable(k, v))
+			}
+		}
+	} else if strings.Contains(strings.ToUpper(query), "SHOW VARIABLES") {
+		return callback(showVariables())
 	}
 
 	fmt.Printf("ComQuery %s\n", query)
